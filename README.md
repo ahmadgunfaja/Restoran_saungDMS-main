@@ -81,3 +81,24 @@ Sistem ini adalah aplikasi restoran modern berbasis Laravel yang mendukung pemes
 
 ## Support
 Jika ada pertanyaan teknis, silakan hubungi developer/support yang tertera di dokumentasi internal.
+
+---
+
+## [2025-06-02] Perubahan & Perbaikan Terbaru
+
+### 1. Sinkronisasi Perhitungan Amount & Order Items (Order Biasa & Reservasi)
+- Jika order reservasi, data menu diambil dari `order->menu_items` (bukan cart), sehingga perhitungan subtotal, pajak, dan amount tetap benar.
+- Logic ini otomatis di service Tripay, sehingga amount dan payload Tripay selalu valid untuk order biasa maupun reservasi.
+- Order items (termasuk pajak/TAX10) selalu diinsert ke tabel order_items, baik order baru maupun reservasi.
+
+### 2. Update Field Amount Setelah Response Tripay
+- Field `amount` di tabel order diupdate setelah menerima response dari Tripay (`$transaction['data']['amount']`), agar selalu sinkron dengan nominal yang harus dibayar user.
+- Jika ada fee channel, pajak, dsb, total amount yang tampil di UI dan database sudah sesuai dengan real amount dari Tripay.
+
+### 3. Breakdown Pembayaran Transparan di UI
+- Halaman thankyou dan summary order kini menampilkan breakdown: subtotal, pajak, fee channel, dan total bayar.
+- Data diambil langsung dari order_items dan payment_transaction, sehingga user/admin bisa audit detail pembayaran dengan mudah.
+
+### 4. Perbaikan Robustness
+- Insert order_items selalu dihapus dulu sebelum insert ulang, agar tidak terjadi duplikasi jika proses dipanggil ulang.
+- Logic perhitungan amount dan payload Tripay sudah robust untuk semua flow (order biasa & reservasi).
