@@ -147,6 +147,8 @@ class MenuController extends Controller
         $order = Order::with(['orderItems', 'menus', 'table'])->findOrFail($orderId);
         $payment = DB::table('payment_transactions')->where('order_id', $order->id)->latest()->first();
         $merchantCode = config('services.tripay.merchant_code');
+        // Hapus session cart setelah order sukses
+        session()->forget('cart');
         return view('menus.summary', compact('order', 'payment', 'merchantCode'));
     }
 }

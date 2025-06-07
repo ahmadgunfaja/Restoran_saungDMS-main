@@ -34,10 +34,6 @@ class TripayPaymentService
       $subtotal += $item['price'] * $item['quantity'];
     }
     $tax = $subtotal * 0.10;
-    $feeFlat = $validated['fee_flat'] ?? 0;
-    $feePercent = $validated['fee_percent'] ?? 0;
-    $totalFee = $feeFlat + ($feePercent / 100 * ($subtotal + $tax));
-    $totalPrice = $subtotal + $tax + $totalFee;
     $amount = $subtotal + $tax;
     if ($tax > 0) {
       $orderItems[] = [
@@ -56,7 +52,6 @@ class TripayPaymentService
           'phone' => $validated['phone'],
           'email' => $validated['email'],
           'table_id' => $validated['table_id'],
-          'total_price' => $totalPrice,
           'amount' => $amount,
           'tax' => $tax,
           'note' => $validated['note'] ?? null,
@@ -119,7 +114,7 @@ class TripayPaymentService
         'amount_received' => $transaction['data']['amount_received'],
         'fee_merchant' => $transaction['data']['fee_merchant'],
         'fee_customer' => $transaction['data']['fee_customer'],
-        'total_fee' => $totalFee,
+        'total_fee' => $transaction['data']['fee_customer'] + $transaction['data']['fee_merchant'],
         'payment_response' => json_encode($transaction),
         'expired_time' => $transaction['data']['expired_time'],
         'checkout_url' => $transaction['data']['checkout_url'],
@@ -141,6 +136,7 @@ class TripayPaymentService
       $writer = new \Endroid\QrCode\Writer\PngWriter();
       $result = $writer->write($qrCode);
       $result->saveToFile($qrCodePath);
+      $order->total_price = $transaction['data']['amount'];
       $order->amount = $transaction['data']['amount'];
       $order->qris_screenshot = 'qrcodes/' . $order->id . '.png';
       $order->save();

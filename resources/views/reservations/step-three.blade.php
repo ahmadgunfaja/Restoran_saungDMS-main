@@ -44,15 +44,16 @@
                                 @csrf
 
                                 <div class="sm:col-span-6 pt-5">
-                                    <label for="menus" class="block text-sm font-medium text-gray-700">Select Menu Items</label>
+                                    <label for="menus" class="block text-sm font-medium text-gray-700">Select Menu Items <span class="text-xs text-gray-500">(bisa pilih lebih dari satu)</span></label>
                                     <div class="mt-1">
-                                        <select id="menus" name="menu_items[]" class="form-multiselect block w-full mt-1" multiple>
+                                        <select id="menus" name="menu_items[]" class="form-multiselect block w-full mt-1" multiple size="6">
                                             @foreach ($menus as $menu)
                                                 <option value="{{ $menu->id }}">
                                                     {{ $menu->name }} (Rp {{ number_format($menu->price, 0, ',', '.') }})
                                                 </option>
                                             @endforeach
                                         </select>
+                                        <div class="text-xs text-gray-500 mt-1">Tahan <b>Ctrl</b> / <b>Shift</b> untuk pilih lebih dari satu menu (di desktop), atau tap beberapa kali (di mobile).</div>
                                     </div>
                                     @error('menu_items')
                                         <div class="text-sm text-red-400">{{ $message }}</div>

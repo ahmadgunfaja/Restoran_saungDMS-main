@@ -127,6 +127,11 @@
             const feeFlat = parseFloat(selectedOption.getAttribute('data-fee-flat') || 0);
             const feePercent = parseFloat(selectedOption.getAttribute('data-fee-percent') || 0);
             let fee = feeFlat + (totalWithTax * feePercent / 100);
+            // Bulatkan fee ke 1000 jika channel DANA, QRIS, ShopeePay, OVO dan fee < 1000
+            const channelText = selectedOption.textContent.toLowerCase();
+            if ((channelText.includes('dana') || channelText.includes('qris') || channelText.includes('shopeepay') || channelText.includes('ovo')) && fee > 0 && fee < 1000) {
+                fee = 1000;
+            }
             if (select.value) {
                 feeBox.style.display = 'flex';
                 feeValue.textContent = 'Rp ' + fee.toLocaleString('id-ID');

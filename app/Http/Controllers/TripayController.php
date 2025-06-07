@@ -21,8 +21,6 @@ class TripayController extends Controller
             'table_id' => 'required|integer',
             'note' => 'nullable|string',
             'payment_channel' => 'required|string',
-            'fee_flat' => 'nullable|numeric',
-            'fee_percent' => 'nullable|numeric',
         ]);
         $cart = session()->get('cart', []);
         $service = new TripayPaymentService();
@@ -31,7 +29,6 @@ class TripayController extends Controller
             session()->put('customer_email', $validated['email']);
             $order = Order::with(['orderItems', 'menus', 'table'])->findOrFail($result['order']->id);
             $payment = $result['transaction'];
-            // Pastikan $payment dalam bentuk array, jika masih string JSON, decode dulu
             if (is_string($payment)) {
                 $payment = json_decode($payment, true);
             }
@@ -42,7 +39,7 @@ class TripayController extends Controller
                 'payment_channel' => $validated['payment_channel'],
                 'info_payment' => $payment
             ]);
-            return view('menus.summary', compact('order', 'payment', 'merchantCode'));
+            return redirect()->route('menus.summary', ['order' => $order->id]);
         } catch (\Exception $e) {
             return redirect()->route('menus.checkout')->with('error', 'Terjadi kesalahan saat memproses pesanan. Silakan coba lagi. Error: ' . $e->getMessage());
         }

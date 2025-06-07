@@ -66,6 +66,19 @@
                     </div>
                     <div class="mb-2"><span class="font-semibold">Subtotal:</span> Rp {{ number_format($subtotal,0,',','.') }}</div>
                     <div class="mb-2"><span class="font-semibold">Pajak 10%:</span> Rp {{ number_format($tax,0,',','.') }}</div>
+                    @php
+                        $overPeopleFee = 0;
+                        if($order->orderItems) {
+                            foreach($order->orderItems as $item) {
+                                if($item->sku === 'OVERPEOPLE') {
+                                    $overPeopleFee += $item->price * $item->quantity;
+                                }
+                            }
+                        }
+                    @endphp
+                    @if($overPeopleFee > 0)
+                    <div class="mb-2"><span class="font-semibold text-orange-700">Biaya Tambahan Orang:</span> <span class="text-orange-700">Rp {{ number_format($overPeopleFee,0,',','.') }}</span></div>
+                    @endif
                     <div class="mb-2"><span class="font-semibold">Biaya Channel{{ $feeLabel ? ' ('.$feeLabel.')' : '' }}:</span> Rp {{ number_format($fee,0,',','.') }}</div>
                     <div class="mb-2 font-bold text-indigo-700 text-lg"><span class="font-semibold">Total Bayar:</span> Rp {{ number_format($total,0,',','.') }}</div>
                 </div>

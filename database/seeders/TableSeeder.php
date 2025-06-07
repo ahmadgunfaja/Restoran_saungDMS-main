@@ -45,6 +45,14 @@ class TableSeeder extends Seeder
         'created_at' => now(),
         'updated_at' => now(),
       ],
+      [
+        'name' => 'Meja 10',
+        'guest_number' => 12,
+        'status' => 'available',
+        'location' => 'inside',
+        'created_at' => now(),
+        'updated_at' => now(),
+      ],
     ]);
   }
 }

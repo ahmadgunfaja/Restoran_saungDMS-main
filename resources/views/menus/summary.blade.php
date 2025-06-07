@@ -23,9 +23,21 @@
                 </div>
                 <hr class="my-4">
                 @php
-                    $subtotal = $order->orderItems->sum(function($item){ return $item->price * $item->quantity; });
-                    $tax = $subtotal * 0.10;
-                    $totalWithTax = $subtotal + $tax;
+                    $subtotal = 0;
+                    $tax = 0;
+                    // Fix: convert $payment to array if stdClass
+                    if(isset($payment) && $payment instanceof \stdClass) {
+                        $payment = json_decode(json_encode($payment), true);
+                    }
+                    foreach($order->orderItems as $item) {
+                        if($item->sku === 'TAX10') {
+                            $tax += $item->price * $item->quantity;
+                        } else {
+                            $subtotal += $item->price * $item->quantity;
+                        }
+                    }
+                    $fee_customer = isset($payment['data']['fee_customer']) ? $payment['data']['fee_customer'] : (isset($payment['fee_customer']) ? $payment['fee_customer'] : 0);
+                    $total = isset($payment['data']['amount']) ? $payment['data']['amount'] : ($subtotal + $tax + $fee_customer);
                 @endphp
                 <h3 class="text-lg font-semibold mb-2">Detail Pesanan</h3>
                 <div class="overflow-x-auto mb-2">
@@ -55,7 +67,9 @@
                 <div class="flex flex-col gap-2 text-xs text-gray-500 mb-2">
                     <div><b>Kode Merchant:</b> {{ $merchantCode }}</div>
                     @if($payment)
-                        <div><b>Nomor Referensi Merchant:</b> {{ $payment['data']['merchant_ref'] }}</div>
+                        @if(isset($payment['data']['merchant_ref']))
+                            <div><b>Nomor Referensi Merchant:</b> {{ $payment['data']['merchant_ref'] }}</div>
+                        @endif
                         @if(isset($payment['payment_channel']))
                             <div><b>Kode Channel Pembayaran:</b> {{ $payment['payment_channel'] }}</div>
                         @endif
@@ -70,21 +84,55 @@
                         <span class="text-gray-700">Pajak 10%</span>
                         <span>Rp {{ number_format($tax,0,',','.') }}</span>
                     </div>
-                    @if(isset($payment['fee_customer']))
-                        <div class="flex justify-between py-1">
-                            <span class="text-blue-700">Biaya Channel</span>
-                            <span class="text-blue-700">Rp {{ number_format($payment['fee_customer'],0,',','.') }}</span>
-                        </div>
+                    @php
+                        $overPeopleFee = 0;
+                        if($order->orderItems) {
+                            foreach($order->orderItems as $item) {
+                                if($item->sku === 'OVERPEOPLE') {
+                                    $overPeopleFee += $item->price * $item->quantity;
+                                }
+                            }
+                        }
+                    @endphp
+                    @if($overPeopleFee > 0)
+                    <div class="flex justify-between py-1">
+                        <span class="text-orange-700">Biaya Tambahan Orang</span>
+                        <span class="text-orange-700">Rp {{ number_format($overPeopleFee,0,',','.') }}</span>
+                    </div>
                     @endif
+                    <div class="flex justify-between py-1">
+                        <span class="text-blue-700">Biaya Channel</span>
+                        <span class="text-blue-700">Rp {{ number_format($fee_customer,0,',','.') }}</span>
+                    </div>
                     <div class="flex justify-between py-1 border-t">
                         <span class="text-gray-700">Total</span>
-                        <span class="font-semibold text-green-700">Rp {{ number_format($subtotal + $tax + ($payment['fee_customer'] ?? 0),0,',','.') }}</span>
+                        <span class="font-semibold text-green-700">Rp {{ number_format($total,0,',','.') }}</span>
                     </div>
                 </div>
                 <div class="mt-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
                     <a href="{{ route('menus.orders') }}" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded transition">Lihat Daftar Pesanan</a>
                     @if(isset($payment) && $order->payment_status != 'paid')
-                        <a href="{{ $payment->checkout_url ?? route('payment.order', $order->id) }}" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded transition">Lanjut Pembayaran</a>
+                        @php
+                            $checkoutUrl = null;
+                            $trx = null;
+                            if(isset($payment['payment_response'])) {
+                                $trx = $payment['payment_response'];
+                                if(is_string($trx)) {
+                                    $tryDecode = json_decode($trx, true);
+                                    if(is_string($tryDecode)) {
+                                        $trx = json_decode($tryDecode, true);
+                                    } else {
+                                        $trx = $tryDecode;
+                                    }
+                                }
+                            } elseif(is_array($payment)) {
+                                $trx = $payment;
+                            }
+                            if(isset($trx['data']['checkout_url'])) {
+                                $checkoutUrl = $trx['data']['checkout_url'];
+                            }
+                        @endphp
+                        <a href="{{ $checkoutUrl ?? route('payment.order', $order->id) }}" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded transition">Lanjut Pembayaran</a>
                     @endif
                 </div>
             </div>
@@ -92,17 +140,35 @@
             <div class="flex-1 md:sticky md:top-8 h-fit">
                 @if(isset($payment))
                     @php
-                        // Jika $payment sudah array, gunakan langsung, jika ada key payment_response, decode, jika tidak, treat as Tripay response array
+                        // Parsing payment response agar $trx['data'] selalu array jika ada
+                        $trx = null;
                         if(isset($payment['payment_response'])) {
-                            $trx = json_decode($payment['payment_response'], true);
-                        } else {
+                            $trx = $payment['payment_response'];
+                            // Handle double encoded JSON string
+                            if(is_string($trx)) {
+                                $tryDecode = json_decode($trx, true);
+                                if(is_string($tryDecode)) {
+                                    $trx = json_decode($tryDecode, true);
+                                } else {
+                                    $trx = $tryDecode;
+                                }
+                            }
+                        } elseif(is_array($payment)) {
                             $trx = $payment;
                         }
+                        $instructions = [];
+                        $qrUrl = null;
+                        if(isset($trx['data']['instructions'])) {
+                            $instructions = $trx['data']['instructions'];
+                        }
+                        if(isset($trx['data']['qr_url'])) {
+                            $qrUrl = $trx['data']['qr_url'];
+                        }
                     @endphp
-                    @if(isset($trx['data']['instructions']))
+                    @if(!empty($instructions))
                         <div class="bg-gray-50 rounded-lg p-4 shadow mb-4">
                             <h3 class="font-bold text-lg mb-2 text-indigo-700">Instruksi Pembayaran</h3>
-                            @foreach($trx['data']['instructions'] as $instruksi)
+                            @foreach($instructions as $instruksi)
                                 <div class="mb-4">
                                     <div class="font-semibold text-base text-gray-700 mb-1">{{ $instruksi['title'] }}</div>
                                     <ol class="list-decimal list-inside text-sm text-gray-600 space-y-1">
@@ -113,19 +179,23 @@
                                 </div>
                             @endforeach
                         </div>
+                    @else
+                        <div class="text-sm text-gray-500 italic">Tidak ada instruksi pembayaran tersedia.</div>
                     @endif
-                    @if(isset($trx['data']['qris_url']) && $trx['data']['qris_url'])
+                    @if(!empty($qrUrl))
                         <div class="bg-white rounded-lg p-4 shadow flex flex-col items-center">
                             <h4 class="font-semibold text-base text-gray-700 mb-2">QRIS Pembayaran</h4>
-                            <img src="{{ $trx['data']['qris_url'] }}" alt="QRIS" class="w-48 h-48 object-contain mb-2">
+                            <img src="{{ $qrUrl }}" alt="QRIS" class="w-48 h-48 object-contain mb-2">
                             <div class="text-xs text-gray-500">Scan QRIS di aplikasi pembayaran Anda</div>
                         </div>
                     @elseif($order->qris_screenshot)
                         <div class="bg-white rounded-lg p-4 shadow flex flex-col items-center">
                             <h4 class="font-semibold text-base text-gray-700 mb-2">QRIS Pembayaran</h4>
-                            <img src="{{ $order->qris_screenshot }}" alt="QRIS" class="w-48 h-48 object-contain mb-2">
+                            <img src="{{ asset($order->qris_screenshot) }}" alt="QRIS" class="w-48 h-48 object-contain mb-2">
                             <div class="text-xs text-gray-500">Scan QRIS di aplikasi pembayaran Anda</div>
                         </div>
+                    @else
+                        <div class="text-sm text-gray-500 italic">QRIS tidak tersedia.</div>
                     @endif
                 @endif
             </div>

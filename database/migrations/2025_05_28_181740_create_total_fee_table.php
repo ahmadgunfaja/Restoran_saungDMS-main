@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('payment_transactions', function (Blueprint $table) {
             // Tambahkan kolom total_fee untuk menyimpan total biaya transaksi
-            $table->decimal('total_fee', 15, 2)->default(0.00)->after('amount')->comment('Total biaya transaksi termasuk biaya layanan dan pajak');
+            $table->decimal('total_fee', 15, 2)->default(0.00)->after('amount')->comment('Total biaya transaksi termasuk biaya layanan dan pajak')->nullable();
         });
     }
 

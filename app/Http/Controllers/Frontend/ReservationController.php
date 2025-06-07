@@ -112,14 +112,20 @@ class ReservationController extends Controller
         }
         $order = null;
         $totalCost = 0;
+        $overPeopleFee = 0;
+        $overPeopleCount = 0;
+        $overPeopleFeePerPerson = 10000;
+        if ($reservation->guest_number > 10) {
+            $overPeopleCount = $reservation->guest_number - 10;
+            $overPeopleFee = $overPeopleCount * $overPeopleFeePerPerson;
+        }
         if (!empty($reservation->menu_items)) {
             $totalCost = Menu::whereIn('id', $reservation->menu_items)->sum('price');
         } else {
             $totalCost = $reservation->guest_number * 50; // contoh biaya per orang
         }
-
         $channelsPayment = app(\App\Services\TripayService::class)->getPaymentChannels();
-        return view('reservations.step-four', compact('totalCost', 'reservation', 'order', 'channelsPayment'));
+        return view('reservations.step-four', compact('totalCost', 'reservation', 'order', 'channelsPayment', 'overPeopleFee', 'overPeopleCount', 'overPeopleFeePerPerson'));
     }
 
     public function storeStepFour(Request $request)
@@ -144,11 +150,18 @@ class ReservationController extends Controller
         $checkoutUrl = null;
         $paymentInstructions = null;
         $menuNames = [];
-
+        // Hitung over-people fee
+        $overPeopleFee = 0;
+        $overPeopleCount = 0;
+        $overPeopleFeePerPerson = 10000;
+        if ($reservation->guest_number > 10) {
+            $overPeopleCount = $reservation->guest_number - 10;
+            $overPeopleFee = $overPeopleCount * $overPeopleFeePerPerson;
+        }
         // Jika ada menu, buat order dan payment Tripay
         if (!empty($reservation->menu_items)) {
-            $amount = $this->calculateTotalPriceWithTax($reservation->menu_items);
-            $total_price = $this->calculateTotalPrice($reservation->menu_items);
+            $amount = $this->calculateTotalPriceWithTax($reservation->menu_items) + $overPeopleFee;
+            $total_price = $this->calculateTotalPrice($reservation->menu_items) + $overPeopleFee;
             $order = new Order();
             $order->reservation_id = $reservationModel->id;
             $order->menu_items = json_encode($reservation->menu_items);
@@ -159,7 +172,7 @@ class ReservationController extends Controller
             $order->email = $reservation->email;
             $order->table_id = $reservation->table_id;
             $order->note = null;
-            $order->tax = $this->calculateTax($total_price);
+            $order->tax = $this->calculateTax($this->calculateTotalPrice($reservation->menu_items));
             $order->payment_status = 'pending';
             $order->qris_screenshot = null;
             $order->save();
@@ -173,6 +186,15 @@ class ReservationController extends Controller
                     'name' => $menu->name,
                     'price' => $menu->price,
                     'quantity' => 1,
+                ];
+            }
+            // Tambahkan over-people fee ke Tripay payload jika ada
+            if ($overPeopleFee > 0) {
+                $menuItems[] = [
+                    'sku' => 'OVERPEOPLE',
+                    'name' => 'Biaya Tambahan Orang (' . $overPeopleCount . ' x ' . number_format($overPeopleFeePerPerson) . ')',
+                    'price' => $overPeopleFeePerPerson,
+                    'quantity' => $overPeopleCount,
                 ];
             }
             $payload = [

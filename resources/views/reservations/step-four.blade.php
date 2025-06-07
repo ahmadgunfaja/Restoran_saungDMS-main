@@ -61,6 +61,15 @@
                                             class="block w-full appearance-none bg-white border border-gray-400 rounded-md py-2 px-3 text-base leading-normal transition duration-150 ease-in-out sm:text-sm sm:leading-5 bg-gray-50" />
                                     </div>
                                 </div>
+                                @if(isset($overPeopleFee) && $overPeopleFee > 0)
+                                <div class="sm:col-span-6 pt-2">
+                                    <label class="block text-sm font-medium text-gray-700">Biaya Tambahan Orang ({{ $overPeopleCount }} x {{ number_format($overPeopleFeePerPerson,0,',','.') }})</label>
+                                    <div class="mt-1">
+                                        <input type="text" id="over_people_fee" name="over_people_fee" value="{{ number_format($overPeopleFee,0,',','.') }}" readonly
+                                            class="block w-full appearance-none bg-white border border-orange-400 rounded-md py-2 px-3 text-base leading-normal transition duration-150 ease-in-out sm:text-sm sm:leading-5 bg-orange-50 font-semibold text-orange-700" />
+                                    </div>
+                                </div>
+                                @endif
                                 <div class="sm:col-span-6 pt-5">
                                     <label class="block font-semibold mb-2 text-lg">Pilih Metode Pembayaran</label>
                                     <input type="hidden" id="selected_fee_flat" name="fee_flat" value="0">
@@ -111,31 +120,45 @@
         const grandTotal = document.getElementById('grandTotal');
         const totalCost = {{ $totalCost }};
         const tax = totalCost * 0.10;
+        const overPeopleFee = {{ isset($overPeopleFee) ? $overPeopleFee : 0 }};
         const selectedFeeFlat = document.getElementById('selected_fee_flat');
         const selectedFeePercent = document.getElementById('selected_fee_percent');
         select.addEventListener('change', function() {
             const selectedOption = select.options[select.selectedIndex];
             const feeFlat = parseFloat(selectedOption.getAttribute('data-fee-flat') || 0);
             const feePercent = parseFloat(selectedOption.getAttribute('data-fee-percent') || 0);
-            let fee = feeFlat + ((totalCost + tax) * feePercent / 100);
-            // Cek tipe channel
-            let channelType = '';
-            if (selectedOption.textContent.toLowerCase().includes('virtual account') || selectedOption.textContent.toLowerCase().includes('bank')) {
-                channelType = 'va_or_bank';
-            }
-            // Pembulatan fee jika VA/bank dan fee < 1000
-            let displayFee = fee;
-            if (channelType === 'va_or_bank' && fee > 0 && fee < 1000) {
-                displayFee = 1000;
+            let fee = feeFlat + ((totalCost + tax + overPeopleFee) * feePercent / 100);
+            // Pembulatan fee jika channel DANA, QRIS, ShopeePay, OVO dan fee < 1000
+            const channelText = selectedOption.textContent.toLowerCase();
+            let pembulatan = false;
+            if ((channelText.includes('dana') || channelText.includes('qris') || channelText.includes('shopeepay') || channelText.includes('ovo')) && fee > 0 && fee < 1000) {
+                fee = 1000;
+                pembulatan = true;
             }
             if (select.value) {
                 feeBox.style.display = 'flex';
-                feeValue.textContent = 'Rp ' + Math.round(displayFee).toLocaleString('id-ID');
+                feeValue.textContent = 'Rp ' + Math.round(fee).toLocaleString('id-ID');
                 grandTotalBox.style.display = 'flex';
-                grandTotal.textContent = 'Rp ' + Math.round(totalCost + tax + displayFee).toLocaleString('id-ID');
+                grandTotal.textContent = 'Rp ' + Math.round(totalCost + tax + overPeopleFee + fee).toLocaleString('id-ID');
+                // Tambahkan info pembulatan jika ada
+                let info = document.getElementById('feeRoundingInfo');
+                if (!info) {
+                    info = document.createElement('div');
+                    info.id = 'feeRoundingInfo';
+                    info.className = 'text-xs text-orange-600 mt-1';
+                    feeBox.parentNode.insertBefore(info, feeBox.nextSibling);
+                }
+                if (pembulatan) {
+                    info.textContent = 'Biaya channel dibulatkan ke Rp 1.000 sesuai ketentuan payment gateway yang dipakai.';
+                    info.style.display = 'block';
+                } else {
+                    info.style.display = 'none';
+                }
             } else {
                 feeBox.style.display = 'none';
                 grandTotalBox.style.display = 'none';
+                let info = document.getElementById('feeRoundingInfo');
+                if (info) info.style.display = 'none';
             }
             selectedFeeFlat.value = feeFlat;
             selectedFeePercent.value = feePercent;

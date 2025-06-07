@@ -17,8 +17,8 @@ return new class extends Migration
             $table->string('phone');
             $table->string('email');
             $table->foreignId('table_id')->constrained()->onDelete('cascade');  // Relasi dengan tabel 'tables'
-            $table->decimal('total_price', 10, 2);  
-            $table->text('note')->nullable();  
+            $table->decimal('total_price', 10, 2)->nullable();
+            $table->text('note')->nullable();
             $table->enum('payment_status', ['pending', 'completed', 'failed'])->default('pending');  // Status Pembayaran
             $table->string('qris_screenshot')->nullable();
             $table->timestamps();

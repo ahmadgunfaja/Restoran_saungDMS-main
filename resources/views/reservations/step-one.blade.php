@@ -109,7 +109,7 @@
                                 </div>
                                 <div class="sm:col-span-6">
                                     <label for="guest_number" class="block text-sm font-medium text-gray-700"> Guest
-                                        Number
+                                        Number (Jumlah Orang)
                                     </label>
                                     <div class="mt-1">
                                         <input type="number" id="guest_number" name="guest_number"

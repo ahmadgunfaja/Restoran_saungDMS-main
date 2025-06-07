@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             MenuSeeder::class,
             TableSeeder::class,
+            UserDemoSeeder::class,
             // tambahkan seeder lain jika perlu
         ]);
     }
